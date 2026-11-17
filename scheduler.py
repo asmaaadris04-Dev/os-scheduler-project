@@ -79,6 +79,44 @@ def print_gantt(gantt):
     print(times)
 
 
+def draw_gantt(title, gantt, filename):
+    """Draw the Gantt chart with matplotlib and save it as a PNG image."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")            # save to file, no window needed
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib is not installed: skipping the chart "
+              "(install it with: pip install matplotlib)")
+        return
+
+    names = sorted({n for n, s, e in gantt if n != "idle"},
+                   key=lambda n: int("".join(c for c in n if c.isdigit())))
+    colors = plt.cm.tab10.colors
+    color_of = {n: colors[i % 10] for i, n in enumerate(names)}
+
+    fig, ax = plt.subplots(figsize=(10, 2.2))
+    for name, start, end in gantt:
+        if name == "idle":
+            color, label = "lightgray", "idle"
+        else:
+            color, label = color_of[name], name
+        ax.barh(0, end - start, left=start, color=color,
+                edgecolor="black", height=0.5)
+        ax.text((start + end) / 2, 0, label, ha="center", va="center",
+                fontsize=10, fontweight="bold")
+
+    ticks = sorted({s for _, s, _ in gantt} | {e for _, _, e in gantt})
+    ax.set_xticks(ticks)
+    ax.set_yticks([])
+    ax.set_xlabel("Time")
+    ax.set_title(title)
+    plt.tight_layout()
+    fig.savefig(filename, dpi=150)
+    plt.close(fig)
+    print(f"Gantt chart saved: {filename}")
+
+
 def report(title, procs, gantt):
     m = metrics(procs, gantt)
     print(f"\n===== {title} =====")
@@ -97,8 +135,14 @@ def main():
     path = sys.argv[1] if len(sys.argv) > 1 else "input.txt"
     procs = read_input(path)
 
-    a = report("FCFS", procs, fcfs(procs))
-    b = report("Priority (non-preemptive)", procs, priority_np(procs))
+    g1 = fcfs(procs)
+    g2 = priority_np(procs)
+
+    a = report("FCFS", procs, g1)
+    draw_gantt("Gantt chart - FCFS", g1, "gantt_fcfs.png")
+
+    b = report("Priority (non-preemptive)", procs, g2)
+    draw_gantt("Gantt chart - Priority (non-preemptive)", g2, "gantt_priority.png")
 
     print("\n===== Comparison (averages) =====")
     print(f"{'':<28}{'Waiting':<10}{'Turnaround':<12}{'Response':<10}")
